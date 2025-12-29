@@ -1,6 +1,6 @@
 # Nabla
 
-**Type-Aware HuggingFace Model Analyzer**
+**Type-aware HuggingFace model analyzer.**
 
 Nabla is a CLI tool that analyzes HuggingFace model configuration files to extract architectural details and resource requirements. It implements a structured pipeline to read `config.json`, `generation_config.json`, and other artifacts without downloading model weights.
 
