@@ -23,6 +23,7 @@ from .prompts import (
     VIDEO_TEXT_VLM_INTERPRETER,
     T2V_INTERPRETER,
     MULTIMODAL_INTERPRETER,
+    COMPARE_SYSTEM_PROMPT,
 )
 
 console = Console()
@@ -126,17 +127,22 @@ class HFAnalyzer:
             )
 
 
-        # Step 0: Model Type Router
+        # Step 0: Model Type Router (exclude README and noisy large files)
         self._log(f"\n[bold]Step 0:[/bold] Routing model type...")
-        config_text = configs.to_prompt_text()
+        router_text = configs.to_prompt_text(
+            selected_only=True,
+            include_readme=False,
+            exclude_filenames={"tokenizer.json"},
+        )
         
         # We use a separate router call
-        router_result = self._determine_model_type(config_text)
+        router_result = self._determine_model_type(router_text)
         primary_type = router_result.get("primary_type", "unknown")
         self._log(f"  Type identified: [bold cyan]{primary_type}[/bold cyan]")
 
         # Step 1: Strict Factual Extraction
         self._log(f"\n[bold]Step 1:[/bold] Extracting facts ({self.llm.model})...")
+        config_text = configs.to_prompt_text(selected_only=True)
         prompt = ANALYSIS_PROMPT_TEMPLATE.format(config_text=config_text)
         
         try:
@@ -213,7 +219,12 @@ class HFAnalyzer:
         
         # Step 0: Model Type Router
         self._log(f"[bold]Step 0:[/bold] Routing model type...")
-        router_result = self._determine_model_type(config_text)
+        router_text = configs.to_prompt_text(
+            selected_only=True,
+            include_readme=False,
+            exclude_filenames={"tokenizer.json"},
+        )
+        router_result = self._determine_model_type(router_text)
         primary_type = router_result.get("primary_type", "unknown")
         self._log(f"  Type identified: [bold cyan]{primary_type}[/bold cyan]")
 
@@ -273,20 +284,20 @@ class HFAnalyzer:
         Returns:
             Comparison analysis dictionary
         """
-        # Collect all configs
-        all_configs = self.collector.collect_many(repo_ids)
+        # Analyze each repo to obtain strict analysis JSONs
+        analysis_jsons = []
+        for repo_id in repo_ids:
+            result = self.analyze(repo_id)
+            if result.error or not result.raw_response:
+                continue
+            analysis_jsons.append(result.raw_response)
 
-        # Format for comparison
-        analysis_jsons = "\n\n---\n\n".join(
-            cfg.to_prompt_text() for cfg in all_configs if not cfg.error
-        )
-
-        prompt = COMPARISON_PROMPT_TEMPLATE.format(analysis_jsons=analysis_jsons)
+        prompt = COMPARISON_PROMPT_TEMPLATE.format(analysis_jsons="\n\n---\n\n".join(analysis_jsons))
 
         try:
             response = self.llm.complete_json(
                 prompt=prompt,
-                system_prompt=SYSTEM_PROMPT,
+                system_prompt=COMPARE_SYSTEM_PROMPT,
             )
             return json.loads(response.content)
         except Exception as e:
@@ -306,11 +317,15 @@ class HFAnalyzer:
         if configs.error:
             return f"Error: {configs.error}"
 
-        analysis_json = configs.to_prompt_text()
-        prompt = QUICK_SUMMARY_PROMPT.format(analysis_json=analysis_json)
+        result = self.analyze_from_configs(repo_id, configs)
+        if result.error or not result.raw_response:
+            return f"Error: {result.error or 'No analysis produced'}"
+
+        prompt = QUICK_SUMMARY_PROMPT.format(analysis_json=result.raw_response)
 
         try:
-            response = self.llm.complete(prompt=prompt, system_prompt=SYSTEM_PROMPT)
+            from .prompts import SUMMARY_SYSTEM_PROMPT
+            response = self.llm.complete(prompt=prompt, system_prompt=SUMMARY_SYSTEM_PROMPT)
             return response.content
         except Exception as e:
             return f"Error: {e}"
@@ -413,11 +428,16 @@ class HFAnalyzer:
                 error="No configuration files found in repository",
             )
 
-        config_text = configs.to_prompt_text()
+        config_text = configs.to_prompt_text(selected_only=True)
 
         try:
             # Step 0: Router
-            router_result = self._determine_model_type(config_text)
+            router_text = configs.to_prompt_text(
+                selected_only=True,
+                include_readme=False,
+                exclude_filenames={"tokenizer.json"},
+            )
+            router_result = self._determine_model_type(router_text)
             primary_type = router_result.get("primary_type", "unknown")
 
             # Step 1: Extraction

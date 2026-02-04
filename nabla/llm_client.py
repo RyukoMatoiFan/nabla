@@ -59,6 +59,7 @@ class ParameterAnalysis(BaseModel):
     d_model: JustifiedValue = JustifiedValue()
     num_layers: JustifiedValue = JustifiedValue()
     num_heads: JustifiedValue = JustifiedValue()
+    num_key_value_heads: JustifiedValue = JustifiedValue()
 
 
 class ContextWindow(BaseModel):
@@ -66,10 +67,43 @@ class ContextWindow(BaseModel):
     sliding_window: JustifiedValue = JustifiedValue()
 
 
+class Attention(BaseModel):
+    attention_type: JustifiedValue = JustifiedValue()
+    use_sliding_window: JustifiedValue = JustifiedValue()
+    sliding_window_size: JustifiedValue = JustifiedValue()
+
+
 class Modalities(BaseModel):
     visual_encoder_type: JustifiedValue = JustifiedValue()
     audio_encoder_type: JustifiedValue = JustifiedValue()
     video_support_detected: JustifiedValue = JustifiedValue()
+
+
+class Vision(BaseModel):
+    image_size: JustifiedValue = JustifiedValue()
+    patch_size: JustifiedValue = JustifiedValue()
+    image_token_len: JustifiedValue = JustifiedValue()
+    patch_token_len: JustifiedValue = JustifiedValue()
+    vision_layers: JustifiedValue = JustifiedValue()
+    vision_width: JustifiedValue = JustifiedValue()
+    vision_heads: JustifiedValue = JustifiedValue()
+    pool_type: JustifiedValue = JustifiedValue()
+    use_cls_token: JustifiedValue = JustifiedValue()
+    projector_type: JustifiedValue = JustifiedValue()
+    projector_stride: JustifiedValue = JustifiedValue()
+
+
+class Temporal(BaseModel):
+    temporal_patch_size: JustifiedValue = JustifiedValue()
+    position_ids_per_second: JustifiedValue = JustifiedValue()
+    video_tokens_present: JustifiedValue = JustifiedValue()
+
+
+class Limits(BaseModel):
+    max_image_size: JustifiedValue = JustifiedValue()
+    max_pixels_per_image: JustifiedValue = JustifiedValue()
+    pixel_budget: JustifiedValue = JustifiedValue()
+    max_frames: JustifiedValue = JustifiedValue()
 
 
 class SpecialTokens(BaseModel):
@@ -84,7 +118,11 @@ class ModelCapabilities(BaseModel):
     architecture: Architecture = Architecture()
     parameter_analysis: ParameterAnalysis = ParameterAnalysis()
     context_window: ContextWindow = ContextWindow()
+    attention: Attention = Attention()
     modalities: Modalities = Modalities()
+    vision: Vision = Vision()
+    temporal: Temporal = Temporal()
+    limits: Limits = Limits()
     special_tokens: SpecialTokens = SpecialTokens()
 
 
@@ -251,7 +289,7 @@ class LLMClient:
 
         # Try to use native JSON mode if supported
         extra_kwargs = {}
-        if self.model.startswith("gpt-4") or self.model.startswith("gpt-3.5"):
+        if self.model.startswith("gpt-4") or self.model.startswith("gpt-3.5") or self.model.startswith("gpt-4o"):
             extra_kwargs["response_format"] = {"type": "json_object"}
 
         return self.complete(

@@ -1,16 +1,17 @@
 """Prompt templates for HuggingFace model capability analysis."""
 
-SYSTEM_PROMPT = """You are generating a human-readable summary from an existing
-STRICT factual analysis of a HuggingFace model.
+SYSTEM_PROMPT = """You are extracting STRICT factual information from provided
+HuggingFace repository artifacts (configs, processors, token maps).
 
 You MUST:
-- Use ONLY information present in the provided analysis JSON.
-- Rephrase facts, do NOT infer new capabilities or suitability.
-- If information is unknown, state it as "Unknown".
+- Use ONLY information present in the provided artifacts.
+- Quote sources as file name + JSON path.
+- If information is unknown, set value to null and confidence to "unknown".
 
 You must NOT:
 - Guess performance or quality
 - Infer use cases beyond stated capabilities
+- Add values not supported by the artifacts
 
 """
 
@@ -25,7 +26,7 @@ For EACH field:
 - Provide the value
 - Provide a justification object with:
   - "source": file name + JSON path OR "not_found"
-  - "confidence": "explicit" | "derived" | "unknown" || "formula"
+  - "confidence": "explicit" | "derived" | "unknown" | "formula"
 
 If a value cannot be determined strictly from the artifacts,
 set the value to null and confidence to "unknown".
@@ -79,6 +80,11 @@ OUTPUT SCHEMA (do NOT add or remove fields):
         "value": null,
         "confidence": "unknown",
         "source": "not_found"
+    }},
+    "num_key_value_heads": {{
+        "value": null,
+        "confidence": "unknown",
+        "source": "not_found"
     }}
   }},
 
@@ -95,10 +101,43 @@ OUTPUT SCHEMA (do NOT add or remove fields):
     }}
   }},
 
+  "attention": {{
+    "attention_type": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "use_sliding_window": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "sliding_window_size": {{ "value": null, "confidence": "unknown", "source": "not_found" }}
+  }},
+
   "modalities": {{
     "visual_encoder_type": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
     "audio_encoder_type": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
     "video_support_detected": {{ "value": null, "confidence": "unknown", "source": "not_found" }}
+  }},
+
+  "vision": {{
+    "image_size": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "patch_size": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "image_token_len": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "patch_token_len": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "vision_layers": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "vision_width": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "vision_heads": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "pool_type": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "use_cls_token": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "projector_type": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "projector_stride": {{ "value": null, "confidence": "unknown", "source": "not_found" }}
+  }},
+
+  "temporal": {{
+    "temporal_patch_size": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "position_ids_per_second": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "video_tokens_present": {{ "value": null, "confidence": "unknown", "source": "not_found" }}
+  }},
+
+  "limits": {{
+    "max_image_size": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "max_pixels_per_image": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "pixel_budget": {{ "value": null, "confidence": "unknown", "source": "not_found" }},
+    "max_frames": {{ "value": null, "confidence": "unknown", "source": "not_found" }}
   }},
 
   "special_tokens": {{
@@ -153,6 +192,7 @@ Rules:
 - Rely ONLY on explicit signals (e.g. `LlavaForConditionalGeneration` -> image_text_vlm).
 - If `video` word appears in processor configs or architectures, check if it is generation or understanding.
 - Do not guess based on model name alone.
+- If README content is present, ignore it unless it contains explicit architecture class names.
 """
 
 
@@ -184,6 +224,9 @@ Rules:
 - Prefer stating uncertainty over ranking.
 """
 
+COMPARE_SYSTEM_PROMPT = """You are comparing STRICT factual analysis JSON outputs.
+You MUST NOT add new facts or infer suitability."""
+
 
 QUICK_SUMMARY_PROMPT = """Based ONLY on the following STRICT model analysis JSON:
 
@@ -206,6 +249,9 @@ Rules:
 - Keep the summary factual and compact
 
 """
+
+SUMMARY_SYSTEM_PROMPT = """You are summarizing a STRICT factual analysis JSON.
+You MUST use ONLY the provided JSON values, no inference."""
 
 
 
@@ -318,4 +364,3 @@ MULTIMODAL_INTERPRETER = BASE_INTERPRETER_TEMPLATE.format(
 - unified vocabulary characteristics
 """
 )
-

@@ -23,7 +23,10 @@ DEFAULT_CONFIG_FILES = [
     "image_processor_config.json",
     "chat_template.json",
     "tokenizer.json",
+    "model_index.json",
 ]
+
+LARGE_FILE_BYTES = 1_000_000
 
 
 @dataclass
@@ -50,7 +53,12 @@ class RepoConfigs:
     include_readme: bool = False  # Whether to include in analysis
     error: Optional[str] = None
 
-    def to_prompt_text(self, selected_only: bool = True) -> str:
+    def to_prompt_text(
+        self,
+        selected_only: bool = True,
+        include_readme: Optional[bool] = None,
+        exclude_filenames: Optional[set[str]] = None,
+    ) -> str:
         """Format configs for LLM prompt."""
         lines = [f"# Repository: {self.repo_id}\n"]
 
@@ -59,7 +67,8 @@ class RepoConfigs:
             return "\n".join(lines)
 
         # Include README if selected
-        if self.include_readme and self.readme:
+        include_readme = self.include_readme if include_readme is None else include_readme
+        if include_readme and self.readme:
             lines.append("\n## README.md")
             lines.append("```markdown")
             # Truncate very long READMEs
@@ -69,6 +78,8 @@ class RepoConfigs:
 
         for cfg in self.configs:
             if selected_only and not cfg.selected:
+                continue
+            if exclude_filenames and cfg.filename in exclude_filenames:
                 continue
             lines.append(f"\n## {cfg.filename}")
             if cfg.is_valid_json and cfg.parsed:
@@ -215,6 +226,9 @@ class ConfigCollector:
                         size_bytes=file_size,
                         error=str(je),
                     )
+
+                if os.path.basename(filepath) == "tokenizer.json" and file_size > LARGE_FILE_BYTES:
+                    cfg.selected = False
 
                 result.configs.append(cfg)
 
